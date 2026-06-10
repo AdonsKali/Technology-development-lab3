@@ -21,6 +21,7 @@ HEADERS += \
     interfaces/ichart.h \
     interfaces/ichartstyle.h \
     interfaces/idata.h \
+    ioc/container.h \
     mainwindow.h
 
 FORMS += \
