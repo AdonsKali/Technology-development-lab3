@@ -25,6 +25,13 @@ private slots:
 
 private:
     void setupChartArea();
+    void loadAndDisplayChart(const QString& filePath);
+    void clearChartArea();
+    void showErrorMessage(const QString& title, const QString& message);
+    QString m_currentFilePath;
+    bool m_isChartDisplayed;
+    QVector<QPointF> m_currentData;
+    static constexpr int MIN_CHART_HEIGHT = 400;
     QFileSystemModel *rightPartModel;
     QFileSystemModel *leftPartModel;
     QTreeView *treeView;

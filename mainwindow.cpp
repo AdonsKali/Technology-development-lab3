@@ -115,7 +115,139 @@ void MainWindow::setupChartArea()
             this, &MainWindow::onPrintToPDF);
 }
 
+void MainWindow::onFileSelected(const QItemSelection &selected, const QItemSelection &deselected)
+{
+    Q_UNUSED(deselected);
+    
+    QModelIndexList indexes = selected.indexes();
+    if (indexes.isEmpty()) return;
+    
+    QModelIndex ix = indexes.first();
+    if (!ix.isValid()) return;
+    
+    QString filePath = rightPartModel->filePath(ix);
+    
+    if (filePath.endsWith(".db") || filePath.endsWith(".sqlite") || filePath.endsWith(".json")) {
+        statusBar()->showMessage("Загрузка: " + QFileInfo(filePath).fileName());
+        loadAndDisplayChart(filePath);
+    }
+}
+
+void MainWindow::loadAndDisplayChart(const QString& filePath)
+{
+    m_currentFilePath = filePath;
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    std::shared_ptr<IData> data;
+    
+    if (filePath.endsWith(".db") || filePath.endsWith(".sqlite")) {
+        data = std::make_shared<SQLDataAdapter>();
+    } else if (filePath.endsWith(".json")) {
+        data = std::make_shared<JSONDataAdapter>();
+    } else {
+        showErrorMessage("Ошибка", "Неподдерживаемый формат файла");
+        return;
+    }
+    
+    if (!data->load(filePath)) {
+        showErrorMessage("Ошибка", "Не удалось загрузить данные");
+        return;
+    }
+    
+    m_currentData = data->getPoints();
+    qDebug() << "Загружено точек:" << m_currentData.size();
+    
+    QApplication::restoreOverrideCursor();
+
+    QChart* chart = new QChart();
+    
+    if (chartTypeCombo->currentText() == "Line Chart") {
+        chart->setTitle("Line Chart");
+        QLineSeries* series = new QLineSeries();
+        
+        int step = qMax(1, m_currentData.size() / 1000);
+        for (int i = 0; i < m_currentData.size(); i += step) {
+            series->append(m_currentData[i]);
+        }
+        chart->addSeries(series);
+    } else {
+        chart->setTitle("Bar Chart");
+        QBarSeries* series = new QBarSeries();
+        QBarSet* barSet = new QBarSet("Values");
+        
+        int maxPoints = qMin(100, m_currentData.size());
+        for (int i = 0; i < maxPoints; ++i) {
+            *barSet << m_currentData[i].y();
+        }
+        series->append(barSet);
+        chart->addSeries(series);
+    }
+    
+    chart->createDefaultAxes();
+    if (grayscaleCheckBox->isChecked()) {
+        chart->setTheme(QChart::ChartThemeDark);
+        chart->setAnimationOptions(QChart::NoAnimation);
+    } else {
+        chart->setTheme(QChart::ChartThemeLight);
+        chart->setAnimationOptions(QChart::SeriesAnimations);
+    }
+    
+    clearChartArea();
+    
+    QChartView* chartView = new QChartView(chart);
+    chartView->setRenderHint(QPainter::Antialiasing, true);
+    chartView->setMinimumHeight(MIN_CHART_HEIGHT);
+    
+    chartLayout->addWidget(chartView);
+    m_isChartDisplayed = true;
+    
+    statusBar()->showMessage(QString("Загружено: %1 (%2 точек)")
+        .arg(QFileInfo(filePath).fileName()).arg(m_currentData.size()));
+}
+
+void MainWindow::clearChartArea()
+{
+    QLayoutItem* child;
+    while ((child = chartLayout->takeAt(0)) != nullptr) {
+        if (child->widget()) delete child->widget();
+        delete child;
+    }
+}
+
+void MainWindow::showErrorMessage(const QString& title, const QString& message)
+{
+    QMessageBox::critical(this, title, message);
+    statusBar()->showMessage("Ошибка: " + message, 5000);
+}
 void MainWindow::onChartTypeChanged(int index) { Q_UNUSED(index); }
 void MainWindow::onGrayscaleToggled(bool checked) { Q_UNUSED(checked); }
-void MainWindow::onPrintToPDF() { }
+void MainWindow::onPrintToPDF()
+{
+    if (!m_isChartDisplayed || chartLayout->count() == 0) {
+        showErrorMessage("Предупреждение", "Нет графика для печати");
+        return;
+    }
+    
+    QString fileName = QFileDialog::getSaveFileName(this, "Сохранить PDF",
+                        QDir::homePath(), "PDF Files (*.pdf)");
+    if (fileName.isEmpty()) return;
+    
+    QChartView* chartView = qobject_cast<QChartView*>(chartLayout->itemAt(0)->widget());
+    if (!chartView) {
+        showErrorMessage("Ошибка", "Виджет графика не найден");
+        return;
+    }
+    
+    QPrinter printer;
+    printer.setOutputFormat(QPrinter::PdfFormat);
+    printer.setOutputFileName(fileName);
+    printer.setColorMode(grayscaleCheckBox->isChecked() ? QPrinter::GrayScale : QPrinter::Color);
+    printer.setPageSize(QPageSize::A4);
+    printer.setResolution(300);
+    
+    QPainter painter(&printer);
+    chartView->render(&painter);
+    painter.end();
+    
+    QMessageBox::information(this, "Успех", QString("PDF сохранен: %1").arg(fileName));
+}
 MainWindow::~MainWindow() {}
