@@ -19,13 +19,24 @@ public:
 
 private slots:
     void on_selectionChangedSlot(const QItemSelection &selected, const QItemSelection &deselected);
+    void onChartTypeChanged(int index);
+    void onGrayscaleToggled(bool checked);
+    void onPrintToPDF();
 
 private:
     void setupChartArea();
+    QFileSystemModel *rightPartModel;
+    QFileSystemModel *leftPartModel;
+    QTreeView *treeView;
+    QTableView *tableView;
     QSplitter *rightSplitter;
     QWidget *chartPanel;
     QVBoxLayout *chartPanelLayout;
     QVBoxLayout *chartLayout;
+    QHBoxLayout *chartControlsLayout;
+    QComboBox *chartTypeCombo;
+    QCheckBox *grayscaleCheckBox;
+    QPushButton *printButton;
 };
 
 #endif

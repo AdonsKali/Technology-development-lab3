@@ -80,4 +80,42 @@ void MainWindow::setupChartArea()
     chartPanelLayout->addLayout(chartLayout);
 }
 
+
+void MainWindow::setupChartArea()
+{
+    chartPanel = new QWidget(this);
+    chartPanelLayout = new QVBoxLayout(chartPanel);
+    chartPanelLayout->setContentsMargins(5, 5, 5, 5);
+    chartControlsLayout = new QHBoxLayout();
+    chartControlsLayout->setContentsMargins(5, 5, 5, 5);
+    QLabel* chartTypeLabel = new QLabel("Тип диаграммы:", this);
+    chartTypeCombo = new QComboBox(this);
+    chartTypeCombo->addItem("Line Chart");
+    chartTypeCombo->addItem("Bar Chart");
+    grayscaleCheckBox = new QCheckBox("Черно-белый график", this);
+    printButton = new QPushButton("Печать графика", this);
+    chartControlsLayout->addWidget(chartTypeLabel);
+    chartControlsLayout->addWidget(chartTypeCombo);
+    chartControlsLayout->addStretch();
+    chartControlsLayout->addWidget(grayscaleCheckBox);
+    chartControlsLayout->addWidget(printButton);
+    chartLayout = new QVBoxLayout();
+    chartLayout->setContentsMargins(0, 0, 0, 0);
+    QLabel* placeholder = new QLabel("Выберите файл для отображения графика", this);
+    placeholder->setAlignment(Qt::AlignCenter);
+    chartLayout->addWidget(placeholder);
+    chartPanelLayout->addLayout(chartControlsLayout);  
+    chartPanelLayout->addLayout(chartLayout);
+    
+    connect(chartTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &MainWindow::onChartTypeChanged);
+    connect(grayscaleCheckBox, &QCheckBox::toggled,
+            this, &MainWindow::onGrayscaleToggled);
+    connect(printButton, &QPushButton::clicked,
+            this, &MainWindow::onPrintToPDF);
+}
+
+void MainWindow::onChartTypeChanged(int index) { Q_UNUSED(index); }
+void MainWindow::onGrayscaleToggled(bool checked) { Q_UNUSED(checked); }
+void MainWindow::onPrintToPDF() { }
 MainWindow::~MainWindow() {}
