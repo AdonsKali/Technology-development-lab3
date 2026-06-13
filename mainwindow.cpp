@@ -218,8 +218,20 @@ void MainWindow::showErrorMessage(const QString& title, const QString& message)
     QMessageBox::critical(this, title, message);
     statusBar()->showMessage("Ошибка: " + message, 5000);
 }
-void MainWindow::onChartTypeChanged(int index) { Q_UNUSED(index); }
-void MainWindow::onGrayscaleToggled(bool checked) { Q_UNUSED(checked); }
+void MainWindow::onChartTypeChanged(int index)
+{
+    Q_UNUSED(index);
+    if (!m_currentFilePath.isEmpty()) {
+        loadAndDisplayChart(m_currentFilePath); 
+    }
+}
+void MainWindow::onGrayscaleToggled(bool checked)
+{
+    Q_UNUSED(checked);
+    if (!m_currentFilePath.isEmpty()) {
+        loadAndDisplayChart(m_currentFilePath); 
+    }
+}
 void MainWindow::onPrintToPDF()
 {
     if (!m_isChartDisplayed || chartLayout->count() == 0) {
