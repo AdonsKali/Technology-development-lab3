@@ -13,16 +13,18 @@ MainWindow::MainWindow(QWidget *parent)
     this->setGeometry(100, 100, 1500, 500);
     this->setStatusBar(new QStatusBar(this));
     this->statusBar()->showMessage("Выбранный путь : ");
-    
+
     QString homePath = QDir::homePath();
-    
     leftPartModel = new QFileSystemModel(this);
     leftPartModel->setFilter(QDir::NoDotAndDotDot | QDir::AllDirs);
     leftPartModel->setRootPath(homePath);
     
-    rightPartModel = new QFileSystemModel(this);
-    rightPartModel->setFilter(QDir::NoDotAndDotDot | QDir::Files);
-    rightPartModel->setRootPath(homePath);
+    rightSplitter = new QSplitter(Qt::Vertical, this);
+    rightSplitter->addWidget(tableView);
+    setupChartArea();
+    rightSplitter->addWidget(chartPanel);
+    rightSplitter->setStretchFactor(0, 1);
+    rightSplitter->setStretchFactor(1, 2);
     
     treeView = new QTreeView();
     treeView->setModel(leftPartModel);
@@ -63,6 +65,19 @@ void MainWindow::on_selectionChangedSlot(const QItemSelection &selected, const Q
         statusBar()->showMessage("Выбранный путь : " + filePath);
         tableView->setRootIndex(rightPartModel->setRootPath(filePath));
     }
+}
+
+void MainWindow::setupChartArea()
+{
+    chartPanel = new QWidget(this);
+    chartPanelLayout = new QVBoxLayout(chartPanel);
+    chartPanelLayout->setContentsMargins(5, 5, 5, 5);
+    chartLayout = new QVBoxLayout();
+    chartLayout->setContentsMargins(0, 0, 0, 0);
+    QLabel* placeholder = new QLabel("Выберите файл для отображения графика", this);
+    placeholder->setAlignment(Qt::AlignCenter);
+    chartLayout->addWidget(placeholder);
+    chartPanelLayout->addLayout(chartLayout);
 }
 
 MainWindow::~MainWindow() {}

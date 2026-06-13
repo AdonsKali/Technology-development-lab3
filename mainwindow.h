@@ -5,6 +5,9 @@
 #include <QFileSystemModel>
 #include <QTreeView>
 #include <QTableView>
+#include <QSplitter>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
 
 class MainWindow : public QMainWindow
 {
@@ -18,10 +21,11 @@ private slots:
     void on_selectionChangedSlot(const QItemSelection &selected, const QItemSelection &deselected);
 
 private:
-    QFileSystemModel *rightPartModel;
-    QFileSystemModel *leftPartModel;
-    QTreeView *treeView;
-    QTableView *tableView;
+    void setupChartArea();
+    QSplitter *rightSplitter;
+    QWidget *chartPanel;
+    QVBoxLayout *chartPanelLayout;
+    QVBoxLayout *chartLayout;
 };
 
 #endif
