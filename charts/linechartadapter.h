@@ -1,4 +1,3 @@
-
 #ifndef LINECHARTADAPTER_H
 #define LINECHARTADAPTER_H
 
@@ -9,9 +8,6 @@
 class LineChartAdapter : public IChart
 {
 public:
-    QString getSupportedDataType() const override {
-        return "line";
-    }
 
     std::shared_ptr<QChart> createChart(std::shared_ptr<IData> data) override {
         auto chart = std::make_shared<QChart>();
@@ -24,25 +20,18 @@ public:
             chart->setTitle("No Data Available");
             return chart;
         }
-
-        // Добавляем точки в серию
         for (const QPointF& point : points) {
             series->append(point);
         }
-
-        // Настройка внешнего вида линии
         QPen pen(Qt::blue);
         pen.setWidth(2);
         series->setPen(pen);
-
-        // Включаем отображение точек
         series->setPointsVisible(true);
         series->setPointLabelsVisible(false);
 
         chart->addSeries(series);
         chart->createDefaultAxes();
 
-        // Настраиваем оси
         if (chart->axisX()) {
             chart->axisX()->setTitleText("Index");
             chart->axisX()->setLabelsVisible(true);
@@ -55,6 +44,10 @@ public:
 
         return chart;
     }
+
+    QString getSupportedDataType() const override {
+        return "line";
+    }
 };
 
-#endif // LINECHARTADAPTER_H
+#endif 
