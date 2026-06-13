@@ -2,12 +2,9 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-
-QT_BEGIN_NAMESPACE
-namespace Ui {
-class MainWindow;
-}
-QT_END_NAMESPACE
+#include <QFileSystemModel>
+#include <QTreeView>
+#include <QTableView>
 
 class MainWindow : public QMainWindow
 {
@@ -17,7 +14,14 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+private slots:
+    void on_selectionChangedSlot(const QItemSelection &selected, const QItemSelection &deselected);
+
 private:
-    Ui::MainWindow *ui;
+    QFileSystemModel *rightPartModel;
+    QFileSystemModel *leftPartModel;
+    QTreeView *treeView;
+    QTableView *tableView;
 };
+
 #endif
