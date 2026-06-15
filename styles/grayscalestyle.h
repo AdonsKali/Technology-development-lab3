@@ -23,9 +23,9 @@ public:
         chart->legend()->setAlignment(Qt::AlignBottom);
 
         QList<QColor> grayColors;
-        grayColors << QColor(50, 50, 50)   
-                   << QColor(100, 100, 100) 
-                   << QColor(150, 150, 150) 
+        grayColors << QColor(50, 50, 50)
+                   << QColor(100, 100, 100)
+                   << QColor(150, 150, 150)
                    << QColor(200, 200, 200);
 
         int colorIndex = 0;

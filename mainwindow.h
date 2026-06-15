@@ -13,6 +13,7 @@
 #include <QCheckBox>
 #include <QPushButton>
 #include <QLabel>
+#include "services/chartservice.h"
 #include <memory>
 
 QT_BEGIN_NAMESPACE
@@ -25,13 +26,15 @@ QT_END_NAMESPACE
 class QChartView;
 class IOCContainer;
 class IData;
+class QChart;
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(std::shared_ptr<IOCContainer> container,
+                        QWidget *parent = nullptr);
     ~MainWindow();
 
 private slots:
@@ -46,6 +49,9 @@ private:
     void loadAndDisplayChart(const QString& filePath);
     void clearChartArea();
     void showErrorMessage(const QString& title, const QString& message);
+
+    std::shared_ptr<IOCContainer> m_container;
+    std::shared_ptr<ChartService> m_chartService;
 
     Ui::MainWindow *ui;
 
@@ -66,6 +72,9 @@ private:
     QString m_currentFilePath;
     bool m_isChartDisplayed;
     QVector<QPointF> m_currentData;
+
+    std::shared_ptr<QChart> m_currentChart;
+    QChartView* m_currentChartView;
 
     static constexpr int MIN_CHART_HEIGHT = 400;
 };

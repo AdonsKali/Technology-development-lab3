@@ -28,7 +28,6 @@ public:
         return m_points;
     }
 
-    // New method to get date/time values for axis
     QVector<QDateTime> getDateTimes() const {
         return m_dateTimes;
     }

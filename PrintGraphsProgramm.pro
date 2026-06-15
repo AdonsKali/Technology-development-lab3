@@ -16,6 +16,7 @@ SOURCES += \
 HEADERS += \
     charts/barchartadapter.h \
     charts/linechartadapter.h \
+    data/datafactory.h \
     data/jsondata.h \
     data/jsondataadapter.h \
     data/sqldata.h \
@@ -23,6 +24,7 @@ HEADERS += \
     interfaces/ichart.h \
     interfaces/ichartstyle.h \
     interfaces/idata.h \
+    interfaces/idatafactory.h \
     ioc/container.h \
     mainwindow.h \
     services/chartservice.h \

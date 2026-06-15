@@ -36,7 +36,7 @@ private:
             return m_functor();
         }
     };
-    
+
     std::map<int, std::shared_ptr<FactoryRoot>> m_factories;
 
 public:
@@ -69,6 +69,12 @@ public:
     template<typename TInterface, typename TConcrete>
     void RegisterInstance() {
         auto instance = std::make_shared<TConcrete>();
+        RegisterInstance<TInterface>(instance);
+    }
+
+    template<typename TInterface, typename TConcrete, typename... TArgs>
+    void RegisterInstanceWithArgs(TArgs&&... args) {
+        auto instance = std::make_shared<TConcrete>(std::forward<TArgs>(args)...);
         RegisterInstance<TInterface>(instance);
     }
 };
