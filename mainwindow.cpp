@@ -26,6 +26,8 @@
 #include <QApplication>
 #include <QPrinter>
 #include <QPainter>
+#include <QCategoryAxis>
+#include <QDateTimeAxis>
 #include "data/sqldataadapter.h"
 #include "data/jsondataadapter.h"
 
@@ -180,19 +182,19 @@ void MainWindow::loadAndDisplayChart(const QString& filePath)
 
         if (filePath.endsWith(".db") || filePath.endsWith(".sqlite")) {
             data = std::make_shared<SQLDataAdapter>();
-            qDebug() << "Загрузка SQLite базы данных...";
+            qDebug() << "Loading SQLite database...";
         } else if (filePath.endsWith(".json")) {
             data = std::make_shared<JSONDataAdapter>();
-            qDebug() << "Загрузка JSON файла...";
+            qDebug() << "Loading JSON file...";
         } else {
             QApplication::restoreOverrideCursor();
-            showErrorMessage("Ошибка", "Неподдерживаемый формат файла");
+            showErrorMessage("Error", "Unsupported file format");
             return;
         }
 
         if (!data->load(filePath)) {
             QApplication::restoreOverrideCursor();
-            showErrorMessage("Ошибка", "Не удалось загрузить данные из файла");
+            showErrorMessage("Error", "Failed to load data from file");
             return;
         }
 
@@ -200,36 +202,150 @@ void MainWindow::loadAndDisplayChart(const QString& filePath)
 
         if (m_currentData.isEmpty()) {
             QApplication::restoreOverrideCursor();
-            showErrorMessage("Предупреждение", "Файл не содержит данных");
+            showErrorMessage("Warning", "File contains no data");
             return;
         }
 
-        qDebug() << "Загружено точек:" << m_currentData.size();
+        qDebug() << "Loaded points:" << m_currentData.size();
+
+        clearChartArea();
 
         QChart* chart = new QChart();
 
         if (chartTypeCombo->currentText() == "Line Chart") {
-            chart->setTitle("Line Chart");
+            chart->setTitle("Line Chart - " + QFileInfo(filePath).fileName());
             QLineSeries* series = new QLineSeries();
-            int step = qMax(1, m_currentData.size() / 1000);
-            for (int i = 0; i < m_currentData.size(); i += step) {
-                series->append(m_currentData[i]);
+            int maxPoints = m_currentData.size();
+            int step = 1;
+            if (maxPoints > 2000) {
+                step = maxPoints / 2000;
+                qDebug() << "Downsampling: showing every" << step << "th point";
             }
-            chart->addSeries(series);
-        } else {
-            chart->setTitle("Bar Chart");
-            QBarSeries* series = new QBarSeries();
-            QBarSet* barSet = new QBarSet("Values");
+            QStringList dateLabels;
 
-            int maxPoints = qMin(100, m_currentData.size());
-            for (int i = 0; i < maxPoints; ++i) {
-                *barSet << m_currentData[i].y();
+            for (int i = 0; i < maxPoints; i += step) {
+                series->append(i / step, m_currentData[i].y());
+
+                qint64 timestamp = static_cast<qint64>(m_currentData[i].x());
+                QDateTime dt = QDateTime::fromSecsSinceEpoch(timestamp);
+                if (dt.isValid() && timestamp > 0) {
+                    dateLabels << dt.toString("dd.MM.yy");
+                } else {
+                    dateLabels << QString::number(i);
+                }
             }
+
+            chart->addSeries(series);
+
+            QValueAxis *axisY = new QValueAxis();
+            axisY->setTitleText("Value");
+
+            double minY = m_currentData[0].y();
+            double maxY = m_currentData[0].y();
+            for (const QPointF& point : m_currentData) {
+                if (point.y() < minY) minY = point.y();
+                if (point.y() > maxY) maxY = point.y();
+            }
+            double padding = (maxY - minY) * 0.05;
+            if (padding == 0) padding = 1.0;
+            axisY->setRange(minY - padding, maxY + padding);
+            chart->addAxis(axisY, Qt::AlignLeft);
+            series->attachAxis(axisY);
+
+            QCategoryAxis *axisX = new QCategoryAxis();
+            axisX->setTitleText("Date");
+            axisX->setLabelsAngle(-45);
+
+            int totalPoints = series->count();
+            int labelCount = qMin(15, totalPoints);
+            for (int i = 0; i < labelCount; ++i) {
+                int position = (i * (totalPoints - 1)) / (labelCount - 1);
+                if (position < dateLabels.size()) {
+                    axisX->append(dateLabels[position], position);
+                }
+            }
+
+            chart->addAxis(axisX, Qt::AlignBottom);
+            series->attachAxis(axisX);
+
+            qDebug() << "Line chart created with" << series->count() << "points";
+
+            } else {
+            chart->setTitle("Bar Chart - " + QFileInfo(filePath).fileName());
+
+            int totalPoints = m_currentData.size();
+            int maxBars = 100;
+            int step = 1;
+            int barsToShow = totalPoints;
+
+            if (totalPoints > maxBars) {
+                step = ceil((double)totalPoints / maxBars);
+                barsToShow = ceil((double)totalPoints / step);
+                qDebug() << "Bar chart: showing" << barsToShow << "bars (every" << step << "th point)";
+            }
+
+            QBarSeries* series = new QBarSeries();
+            if (barsToShow > 80) {
+                series->setBarWidth(0.3);
+            } else if (barsToShow > 50) {
+                series->setBarWidth(0.4);
+            } else {
+                series->setBarWidth(0.5);
+            }
+
+            QBarSet* barSet = new QBarSet("Values");
+            QStringList categories;
+
+            for (int i = 0; i < totalPoints; i += step) {
+                double sum = 0;
+                int count = 0;
+                for (int j = i; j < qMin(i + step, totalPoints); ++j) {
+                    sum += m_currentData[j].y();
+                    count++;
+                }
+                double avgValue = sum / count;
+                *barSet << avgValue;
+
+                qint64 timestamp = static_cast<qint64>(m_currentData[i].x());
+                QDateTime dt = QDateTime::fromSecsSinceEpoch(timestamp);
+                if (dt.isValid() && timestamp > 0) {
+                    categories << dt.toString("dd.MM.yy");
+                } else {
+                    categories << QString::number(i + 1);
+                }
+            }
+
             series->append(barSet);
             chart->addSeries(series);
-        }
 
-        chart->createDefaultAxes();
+            QBarCategoryAxis *axisX = new QBarCategoryAxis();
+            axisX->setTitleText("Date");
+            axisX->setLabelsAngle(-45);
+
+            axisX->append(categories);
+
+            chart->addAxis(axisX, Qt::AlignBottom);
+            series->attachAxis(axisX);
+
+            QValueAxis *axisY = new QValueAxis();
+            axisY->setTitleText("Value");
+
+            double minY = 0;
+            double maxY = 0;
+            for (int i = 0; i < barSet->count(); ++i) {
+                double val = barSet->at(i);
+                if (val < minY) minY = val;
+                if (val > maxY) maxY = val;
+            }
+            double padding = (maxY - minY) * 0.1;
+            if (padding == 0) padding = 1.0;
+            axisY->setRange(minY - padding, maxY + padding);
+
+            chart->addAxis(axisY, Qt::AlignLeft);
+            series->attachAxis(axisY);
+
+            qDebug() << "Bar chart created with" << barSet->count() << "bars (original points:" << totalPoints << ")";
+        }
 
         if (grayscaleCheckBox->isChecked()) {
             chart->setTheme(QChart::ChartThemeDark);
@@ -238,21 +354,27 @@ void MainWindow::loadAndDisplayChart(const QString& filePath)
             chart->setTheme(QChart::ChartThemeLight);
             chart->setAnimationOptions(QChart::SeriesAnimations);
         }
-        clearChartArea();
+
+        chart->legend()->setVisible(true);
+        chart->legend()->setAlignment(Qt::AlignBottom);
+        chart->setBackgroundBrush(QBrush(Qt::white));
 
         QChartView* chartView = new QChartView(chart);
-        chartView->setRenderHint(QPainter::Antialiasing, true);
+        chartView->setRenderHint(QPainter::Antialiasing);
         chartView->setMinimumHeight(MIN_CHART_HEIGHT);
+
+
 
         chartLayout->addWidget(chartView);
         m_isChartDisplayed = true;
 
         QApplication::restoreOverrideCursor();
-        statusBar()->showMessage(QString("Загружено: %1 (%2 точек)").arg(QFileInfo(filePath).fileName()).arg(m_currentData.size()));
+        statusBar()->showMessage(QString("Loaded: %1 (%2 points)").arg(QFileInfo(filePath).fileName()).arg(m_currentData.size()));
 
     } catch (const std::exception& e) {
         QApplication::restoreOverrideCursor();
-        showErrorMessage("Ошибка", QString("Исключение: %1").arg(e.what()));
+        showErrorMessage("Error", QString("Exception: %1").arg(e.what()));
+        qDebug() << "Exception:" << e.what();
     }
 }
 
