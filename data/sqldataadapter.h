@@ -8,11 +8,13 @@
 #include <QDebug>
 #include <QDateTime>
 #include <QUuid>
+#include <algorithm>
 
 class SQLDataAdapter : public IData
 {
 private:
     QVector<QPointF> m_points;
+    QVector<QDateTime> m_dateTimes;
     QString m_type;
 
 public:
@@ -26,12 +28,17 @@ public:
         return m_points;
     }
 
+    QVector<QDateTime> getDateTimes() const {
+        return m_dateTimes;
+    }
+
     bool load(const QString& source) override {
         m_points.clear();
+        m_dateTimes.clear();
 
         qDebug() << "Loading database:" << source;
         QString connectionName = QUuid::createUuid().toString();
-        
+
         {
             QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
             db.setDatabaseName(source);
@@ -41,6 +48,7 @@ public:
                 QSqlDatabase::removeDatabase(connectionName);
                 return false;
             }
+
             QStringList tables = db.tables();
             qDebug() << "Tables in database:" << tables;
 
@@ -52,25 +60,60 @@ public:
                 qDebug() << "Loading from table:" << tableName;
                 QString queryStr = QString("SELECT Time, Value FROM %1 ORDER BY Time LIMIT 10000")
                                        .arg(tableName);
-                
+
                 qDebug() << "Executing query:" << queryStr;
                 QSqlQuery query(db);
                 if (query.exec(queryStr)) {
-                    int rowIndex = 0;
-                    
+                    QVector<QPointF> tempPoints;
+                    QVector<QDateTime> tempDateTimes;
+                    int index = 0;
+
                     while (query.next()) {
-                        double x = rowIndex;
                         double y = query.value(1).toDouble();
                         QString timeStr = query.value(0).toString();
-                        QDateTime dt = QDateTime::fromString(timeStr, "dd.MM.yyyy hh");
-                        
-                        if (dt.isValid()) {
-                            x = dt.toSecsSinceEpoch() / 86400.0;
+
+                        QDateTime dt;
+                        dt = QDateTime::fromString(timeStr, "dd.MM.yyyy hh:mm");
+                        if (!dt.isValid()) {
+                            dt = QDateTime::fromString(timeStr, "dd.MM.yyyy hh");
+                        }
+                        if (!dt.isValid()) {
+                            dt = QDateTime::fromString(timeStr, "yyyy-MM-dd hh:mm:ss");
+                        }
+                        if (!dt.isValid()) {
+                            dt = QDateTime::fromString(timeStr, "yyyy-MM-dd");
                         }
 
-                        m_points.append(QPointF(x, y));
-                        rowIndex++;
+                        if (dt.isValid()) {
+                            tempDateTimes.append(dt);
+                            tempPoints.append(QPointF(dt.toSecsSinceEpoch(), y));
+                        } else {
+                            tempDateTimes.append(QDateTime());
+                            tempPoints.append(QPointF(index, y));
+                        }
+                        index++;
                     }
+
+                    struct PointWithDateTime {
+                        QPointF point;
+                        QDateTime dt;
+                    };
+                    QVector<PointWithDateTime> combined;
+                    for (int i = 0; i < tempPoints.size(); ++i) {
+                        combined.append({tempPoints[i], tempDateTimes[i]});
+                    }
+                    std::sort(combined.begin(), combined.end(),
+                              [](const PointWithDateTime& a, const PointWithDateTime& b) {
+                                  return a.dt < b.dt;
+                              });
+
+                    m_points.clear();
+                    m_dateTimes.clear();
+                    for (const auto& item : combined) {
+                        m_points.append(item.point);
+                        m_dateTimes.append(item.dt);
+                    }
+
                     if (!m_points.isEmpty()) {
                         success = true;
                         qDebug() << "Loaded" << m_points.size() << "points from" << tableName;
@@ -89,13 +132,14 @@ public:
             qDebug() << "No data found in database:" << source;
             return false;
         }
+
         qDebug() << "Total loaded points:" << m_points.size();
-        qDebug() << "First 5 points:";
-        for (int i = 0; i < qMin(5, m_points.size()); ++i) {
-            qDebug() << "  [" << i << "] x=" << m_points[i].x() << "y=" << m_points[i].y();
+        if (!m_dateTimes.isEmpty() && m_dateTimes.first().isValid()) {
+            qDebug() << "Date range:" << m_dateTimes.first().toString()
+            << "to" << m_dateTimes.last().toString();
         }
         return true;
     }
 };
 
-#endif 
+#endif

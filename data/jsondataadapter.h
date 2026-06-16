@@ -47,7 +47,7 @@ public:
                     m_points.append(QPointF(i, y));
                 }
             }
-        } 
+        }
         else if (doc.isObject()) {
             QJsonObject obj = doc.object();
             if (obj.contains("data") && obj["data"].isArray()) {

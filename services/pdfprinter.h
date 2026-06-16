@@ -49,7 +49,7 @@ public:
         }
         qreal scaleX = pageRect.width() / chartSize.width();
         qreal scaleY = pageRect.height() / chartSize.height();
-        qreal scale = qMin(scaleX, scaleY) * 0.9; 
+        qreal scale = qMin(scaleX, scaleY) * 0.9;
         qreal translateX = (pageRect.width() - chartSize.width() * scale) / 2;
         qreal translateY = (pageRect.height() - chartSize.height() * scale) / 2;
 

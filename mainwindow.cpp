@@ -26,15 +26,23 @@
 #include <QApplication>
 #include <QPrinter>
 #include <QPainter>
-#include "data/sqldataadapter.h"
-#include "data/jsondataadapter.h"
+#include <QCategoryAxis>
+#include <QDateTimeAxis>
+#include <QFileInfo>
+#include "interfaces/idatafactory.h"
+#include "ioc/container.h"
+#include "styles/colorstyle.h"
+#include "styles/grayscalestyle.h"
 
 
-MainWindow::MainWindow(QWidget *parent)
+
+MainWindow::MainWindow(std::shared_ptr<IOCContainer> container, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , m_container(container)
     , m_isChartDisplayed(false)
 {
+    m_chartService = m_container->GetObject<ChartService>();
     ui->setupUi(this);
 
     this->setGeometry(100, 100, 1600, 800);
@@ -171,89 +179,65 @@ void MainWindow::onFileSelected(const QItemSelection &selected, const QItemSelec
 
 void MainWindow::loadAndDisplayChart(const QString& filePath)
 {
-    m_currentFilePath = filePath;
+    qDebug() << "=== loadAndDisplayChart START ===";
+    qDebug() << "FilePath:" << filePath;
 
+    m_currentFilePath = filePath;
     QApplication::setOverrideCursor(Qt::WaitCursor);
 
     try {
-        std::shared_ptr<IData> data;
-
-        if (filePath.endsWith(".db") || filePath.endsWith(".sqlite")) {
-            data = std::make_shared<SQLDataAdapter>();
-            qDebug() << "Загрузка SQLite базы данных...";
-        } else if (filePath.endsWith(".json")) {
-            data = std::make_shared<JSONDataAdapter>();
-            qDebug() << "Загрузка JSON файла...";
-        } else {
-            QApplication::restoreOverrideCursor();
-            showErrorMessage("Ошибка", "Неподдерживаемый формат файла");
-            return;
+        qDebug() << "Getting IDataFactory from container...";
+        auto dataFactory = m_container->GetObject<IDataFactory>();
+        if (!dataFactory) {
+            qDebug() << "ERROR: dataFactory is NULL!";
+            throw std::runtime_error("DataFactory not found");
         }
 
+        qDebug() << "Checking supports...";
+        if (!dataFactory->supports(filePath)) {
+            throw std::runtime_error("Unsupported file format");
+        }
+
+        qDebug() << "Creating data adapter...";
+        auto data = dataFactory->create(filePath);
+        if (!data) {
+            throw std::runtime_error("Failed to create data adapter");
+        }
+        qDebug() << "Data adapter created, type:" << data->getType();
+
+        qDebug() << "Loading data...";
         if (!data->load(filePath)) {
-            QApplication::restoreOverrideCursor();
-            showErrorMessage("Ошибка", "Не удалось загрузить данные из файла");
-            return;
+            throw std::runtime_error("Failed to load data");
         }
 
         m_currentData = data->getPoints();
+        qDebug() << "Data loaded, points count:" << m_currentData.size();
 
-        if (m_currentData.isEmpty()) {
-            QApplication::restoreOverrideCursor();
-            showErrorMessage("Предупреждение", "Файл не содержит данных");
-            return;
+        qDebug() << "Creating chart via ChartService...";
+        auto chart = m_chartService->createChart(data);
+        if (!chart) {
+            throw std::runtime_error("Failed to create chart");
         }
+        qDebug() << "Chart created successfully";
 
-        qDebug() << "Загружено точек:" << m_currentData.size();
+        m_currentChart = chart;
 
-        QChart* chart = new QChart();
-
-        if (chartTypeCombo->currentText() == "Line Chart") {
-            chart->setTitle("Line Chart");
-            QLineSeries* series = new QLineSeries();
-            int step = qMax(1, m_currentData.size() / 1000);
-            for (int i = 0; i < m_currentData.size(); i += step) {
-                series->append(m_currentData[i]);
-            }
-            chart->addSeries(series);
-        } else {
-            chart->setTitle("Bar Chart");
-            QBarSeries* series = new QBarSeries();
-            QBarSet* barSet = new QBarSet("Values");
-
-            int maxPoints = qMin(100, m_currentData.size());
-            for (int i = 0; i < maxPoints; ++i) {
-                *barSet << m_currentData[i].y();
-            }
-            series->append(barSet);
-            chart->addSeries(series);
-        }
-
-        chart->createDefaultAxes();
-
-        if (grayscaleCheckBox->isChecked()) {
-            chart->setTheme(QChart::ChartThemeDark);
-            chart->setAnimationOptions(QChart::NoAnimation);
-        } else {
-            chart->setTheme(QChart::ChartThemeLight);
-            chart->setAnimationOptions(QChart::SeriesAnimations);
-        }
         clearChartArea();
+        m_currentChartView = new QChartView(m_currentChart.get());
+        m_currentChartView->setRenderHint(QPainter::Antialiasing);
+        m_currentChartView->setMinimumHeight(MIN_CHART_HEIGHT);
 
-        QChartView* chartView = new QChartView(chart);
-        chartView->setRenderHint(QPainter::Antialiasing, true);
-        chartView->setMinimumHeight(MIN_CHART_HEIGHT);
-
-        chartLayout->addWidget(chartView);
+        chartLayout->addWidget(m_currentChartView);
         m_isChartDisplayed = true;
 
-        QApplication::restoreOverrideCursor();
-        statusBar()->showMessage(QString("Загружено: %1 (%2 точек)").arg(QFileInfo(filePath).fileName()).arg(m_currentData.size()));
+        qDebug() << "=== loadAndDisplayChart SUCCESS ===";
 
     } catch (const std::exception& e) {
-        QApplication::restoreOverrideCursor();
-        showErrorMessage("Ошибка", QString("Исключение: %1").arg(e.what()));
+        qDebug() << "=== EXCEPTION ===" << e.what();
+        showErrorMessage("Error", e.what());
     }
+
+    QApplication::restoreOverrideCursor();
 }
 
 void MainWindow::clearChartArea()
@@ -269,16 +253,34 @@ void MainWindow::clearChartArea()
 
 void MainWindow::onChartTypeChanged(int index)
 {
-    Q_UNUSED(index);
     if (!m_currentFilePath.isEmpty()) {
+        QString chartType = (index == 0) ? "line" : "bar";
+        qDebug() << "onChartTypeChanged: index=" << index << "chartType=" << chartType;
+
+        if (m_chartService) {
+            m_chartService->setChartType(chartType);
+        }
+
         loadAndDisplayChart(m_currentFilePath);
     }
 }
 
 void MainWindow::onGrayscaleToggled(bool checked)
 {
-    Q_UNUSED(checked);
     if (!m_currentFilePath.isEmpty()) {
+        if (m_container) {
+            if (checked) {
+                auto grayscaleStyle = m_container->GetObject<GrayscaleStyle>();
+                if (grayscaleStyle && m_chartService) {
+                    m_chartService->setStyle(grayscaleStyle);
+                }
+            } else {
+                auto colorStyle = m_container->GetObject<ColorStyle>();
+                if (colorStyle && m_chartService) {
+                    m_chartService->setStyle(colorStyle);
+                }
+            }
+        }
         loadAndDisplayChart(m_currentFilePath);
     }
 }
