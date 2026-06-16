@@ -45,6 +45,7 @@ MainWindow::MainWindow(std::shared_ptr<IOCContainer> container, QWidget *parent)
     m_chartService = m_container->GetObject<ChartService>();
     ui->setupUi(this);
 
+    this->setWindowTitle("Print charts");
     this->setGeometry(100, 100, 1600, 800);
     this->setStatusBar(new QStatusBar(this));
     this->statusBar()->showMessage("Выбранный путь : ");
