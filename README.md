@@ -128,7 +128,7 @@
 
 ## UML-диаграмма
 
-Ссылка: https://drive.google.com/file/d/1v0AlEDn_75RxN99n40_K4UEgpzgoEaLj/view?usp=sharing
+Ссылка: https://drive.google.com/file/d/15FCWKrIWWo5EnFKi58Tfy3PeGAkaYlJA/view?usp=sharing
 
 ---
 

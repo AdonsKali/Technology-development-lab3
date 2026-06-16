@@ -52,8 +52,6 @@ public:
             QStringList tables = db.tables();
             qDebug() << "Tables in database:" << tables;
 
-            bool success = false;
-
             for (const QString& tableName : tables) {
                 if (tableName.startsWith("sqlite_")) continue;
 
@@ -115,7 +113,6 @@ public:
                     }
 
                     if (!m_points.isEmpty()) {
-                        success = true;
                         qDebug() << "Loaded" << m_points.size() << "points from" << tableName;
                         break;
                     }
